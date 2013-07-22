@@ -1,5 +1,5 @@
 nagios2mantis (1.0-1) unstable; urgency=low
 
-  * Initial release
+  * Initial release (closes: #717578).
 
  -- Cyril Bouthors <cyril@bouthors.org>  Mon, 22 Jul 2013 17:49:55 +0200
