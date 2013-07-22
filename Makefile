@@ -16,13 +16,20 @@
 
 DESTDIR=/usr/local
 
-all:;
+all: man/nagios2mantis.1.gz;
 
 include autobuild.mk
 
-clean:;
+clean:
+	$(RM) man/nagios2mantis.1.gz
+
+man/nagios2mantis.1.gz: bin/nagios2mantis
+	mkdir -p man
+	help2man --name nagios2mantis --version-string=1.0 $< -o $@
 
 install:
 	mkdir -p $(DESTDIR)/usr/bin
 	cp -p bin/* $(DESTDIR)/usr/bin
 	cp -pr etc $(DESTDIR)
+	mkdir -p $(DESTDIR)/usr/share/man/man1
+	cp -p man/*.1.gz $(DESTDIR)/usr/share/man/man1
