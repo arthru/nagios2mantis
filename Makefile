@@ -16,16 +16,16 @@
 
 DESTDIR=/usr/local
 
-all: man/nagios2mantis.1.gz;
+all: man/nagios2mantis.1;
 
 include autobuild.mk
 
 clean:
-	$(RM) man/nagios2mantis.1.gz
+	$(RM) man/nagios2mantis.1
 
-man/nagios2mantis.1.gz: bin/nagios2mantis
+man/nagios2mantis.1: bin/nagios2mantis
 	mkdir -p man
-	help2man --name nagios2mantis --version-string=1.0 $< -o $@
+	help2man --name $(@F) --version-string=1.0 --no-discard-stderr $< -o $@
 
 install:
 	mkdir -p $(DESTDIR)/usr/bin
