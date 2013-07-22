@@ -13,7 +13,6 @@ Depends: nagios3,
     python-soappy,
     python-configparser,
     python-argparse,
-    python-unidecode,
     python-yaml,
     ${misc:Depends}
 Description: Automatically create Mantis issues on Nagios events
