@@ -1,0 +1,111 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2013 Cyril Bouthors <cyril@boutho.rs>
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+import ConfigParser
+from SOAPpy import WSDL
+import argparse
+import yaml
+from sys import exit
+
+# Read command line arguments
+parser = argparse.ArgumentParser(description='Sends Nagios alerts to Mantis')
+parser.add_argument(
+    '--hostname',
+    help='Nagios hostname',
+    required=True
+)
+parser.add_argument(
+    '--service',
+    help='Nagios service. ' +
+    'Do not define the service if the alerts is about a host'
+)
+parser.add_argument(
+    '--notification-type',
+    help='Nagios notification type',
+    choices=['PROBLEM', 'RECOVERY'],
+    required=True
+)
+parser.add_argument(
+    '--state',
+    help='Nagios service or host state',
+    choices=['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN', 'PENDING'],
+    required=True
+)
+parser.add_argument(
+    '--plugin-output',
+    help='Nagios plugin output',
+    required=True
+)
+parser.add_argument(
+    '--host-notes',
+    help='Nagios host notes: YAML formatted mantis_project_id'
+)
+parser.add_argument(
+    '--configuration-file',
+    help='INI file containing Mantis parameters',
+    default='/etc/nagios2mantis.ini'
+)
+
+args = parser.parse_args()
+
+# Open a Mantis issue only if Nagios sends a problem notification. Issues are
+# closed by the staff
+if args.notification_type != 'RECOVERY':
+    exit()
+
+# Read parameters from configuration file
+config = ConfigParser.RawConfigParser()
+config.read(args.configuration_file)
+wsdl              = config.get('Mantis', 'wsdl')
+username          = config.get('Mantis', 'username')
+password          = config.get('Mantis', 'password')
+mantis_project_id = config.get('Mantis', 'default_mantis_project_id')
+issue_description = unicode(config.get('Mantis', 'issue_description'), 'UTF-8')
+
+# Fetch project list
+mantis = WSDL.Proxy(wsdl)
+
+# Parse args.host_notes
+if args.host_notes is not None and args.host_notes is not '':
+    host_notes = yaml.load(args.host_notes)
+    mantis_project_id = host_notes['mantis_project_id']
+
+# Host alert
+if args.service == None:
+    summary = '{hostname} is {state}'.format(
+        hostname = args.hostname,
+        state    = args.state,
+    )
+# Service alert
+else:
+    summary = '{service} is {state} on host {hostname}'.format(
+        service  = args.service,
+        state    = args.state,
+        hostname = args.hostname,
+    )
+
+issue = {
+    'summary': summary,
+    'description': issue_description.format(plugin_output = args.plugin_output),
+    'category': 'General',
+    'project': {
+        'id': mantis_project_id
+    },
+}
+
+# Open Mantis issue
+mantis.mc_issue_add(username, password, issue);

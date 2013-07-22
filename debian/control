@@ -1,0 +1,20 @@
+Source: nagios2mantis
+Section: admin
+Priority: optional
+Maintainer: Cyril Bouthors <cyb@debian.org>
+Uploaders: Cyril Bouthors <cyril@boutho.rs>, Cyril Bouthors <cyril@bouthors.org>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.9.4
+
+Package: nagios2mantis
+Architecture: all
+Depends: nagios3,
+    python,
+    python-soappy,
+    python-configparser,
+    python-argparse,
+    python-unidecode,
+    python-yaml,
+    ${misc:Depends}
+Description: Automatically create Mantis issues on Nagios events
+ Converts Nagios notifications to Mantis issues thanks to the Soap API.
