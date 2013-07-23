@@ -15,5 +15,7 @@ Depends: nagios3,
     python-argparse,
     python-yaml,
     ${misc:Depends}
+# See http://bugs.debian.org/717675
+Conflicts: python-m2crypto
 Description: Automatically create Mantis issues on Nagios events
  Converts Nagios notifications to Mantis issues thanks to the Soap API.
