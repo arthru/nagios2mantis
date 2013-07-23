@@ -3,8 +3,9 @@ nagios2mantis (1.0-3) unstable; urgency=low
   * etc/nagios3/conf.d/nagios2mantis.cfg: send output to syslog to ease
     debugging
   * bin/nagios2mantis: add debug information
+  * bin/nagios2mantis: fixed stupid typo in argument checking
 
- -- Cyril Bouthors <cyril@bouthors.org>  Tue, 23 Jul 2013 14:39:41 +0200
+ -- Cyril Bouthors <cyril@bouthors.org>  Tue, 23 Jul 2013 16:04:27 +0200
 
 nagios2mantis (1.0-2) unstable; urgency=low
 

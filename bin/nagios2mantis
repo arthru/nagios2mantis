@@ -67,7 +67,7 @@ print args
 
 # Open a Mantis issue only if Nagios sends a problem notification. Issues are
 # closed by the staff
-if args.notification_type != 'RECOVERY':
+if args.notification_type == 'RECOVERY':
     exit()
 
 # Read parameters from configuration file
