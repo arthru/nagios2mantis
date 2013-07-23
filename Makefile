@@ -32,4 +32,4 @@ install:
 	cp -p bin/* $(DESTDIR)/usr/bin
 	cp -pr etc $(DESTDIR)
 	mkdir -p $(DESTDIR)/usr/share/man/man1
-	cp -p man/*.1.gz $(DESTDIR)/usr/share/man/man1
+	cp -p man/*.1 $(DESTDIR)/usr/share/man/man1
