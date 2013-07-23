@@ -1,4 +1,4 @@
-nagios2mantis (1.0-3) unstable; urgency=low
+nagios2mantis (1.1-1) unstable; urgency=low
 
   * etc/nagios3/conf.d/nagios2mantis.cfg: send output to syslog to ease
     debugging
