@@ -1,3 +1,9 @@
+nagios2mantis (1.1-2) unstable; urgency=low
+
+  * bin/nagios2mantis: removed debug information.
+
+ -- Cyril Bouthors <cyril@bouthors.org>  Sat, 03 Aug 2013 13:38:23 +0200
+
 nagios2mantis (1.1-1) unstable; urgency=low
 
   * etc/nagios3/conf.d/nagios2mantis.cfg: send output to syslog to ease
