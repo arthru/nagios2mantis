@@ -15,98 +15,184 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import ConfigParser
-from SOAPpy import WSDL
+from ConfigParser import RawConfigParser
 import argparse
 import yaml
 from sys import exit
+import sqlite3
+from SOAPpy import WSDL
+import os
+
+
+class Config(RawConfigParser):
+    def __init__(self, configuration_file):
+        RawConfigParser.__init__(self)
+        self.read(configuration_file)
+
+        self.wsdl = self.get('Mantis', 'wsdl')
+        self.username = self.get('Mantis', 'username')
+        self.password = self.get('Mantis', 'password')
+        self.project_id = self.get('Mantis', 'default_mantis_project_id')
+        self.issue_description = unicode(self.get(
+            'Mantis', 'issue_description'), 'UTF-8')
+        self.category_name = unicode(config.get('Mantis', 'category_name'),
+                                     'UTF-8')
+        self.sqlite_file = self.get('Mantis2nagios', 'sqlite_file')
+        self.inotify_file = self.get('Mantis2nagios', 'inotify_file')
+
+
+def empty(args):
+    config = Config(args.configuration_file)
+
+    mantis = WSDL.Proxy(config.wsdl)
+    db_spool = DbSpool(config.sqlite_file)
+    for row in db_spool.rows():
+        id, summary, plugin_output, project_id = row
+        issue = {
+            'summary': summary,
+            'description': config.issue_description.format(
+                plugin_output=plugin_output
+            ),
+            'category': config.category_name,
+            'project': {
+                'id': project_id
+            },
+        }
+
+        try:
+            # Open Mantis issue
+            mantis.mc_issue_add(config.username, config.password, issue)
+            db_spool.delete(id)
+        except:
+            db_spool.rollback()
+
+    db_spool.close()
+
+
+def spool(args):
+    config = Config(args.configuration_file)
+    # Open a Mantis issue only if Nagios sends a problem notification. Issues
+    # are closed by the staff
+    if args.notification_type == 'RECOVERY':
+        exit()
+
+    # Parse args.host_notes
+    if args.host_notes is not None and args.host_notes is not '':
+        host_notes = yaml.load(args.host_notes)
+        project_id = host_notes['mantis_project_id']
+    else:
+        project_id = config.project_id
+
+    # Host alert
+    if args.service is None:
+        summary = '{hostname} is {state}'.format(
+            hostname=args.hostname,
+            state=args.state,
+        )
+    # Service alert
+    else:
+        summary = '{service} is {state} on host {hostname}'.format(
+            service=args.service,
+            state=args.state,
+            hostname=args.hostname,
+        )
+
+    db_spool = DbSpool(config.sqlite_file)
+    db_spool.add(summary, args.plugin_output, project_id)
+    db_spool.close()
+
+    if os.path.exists(config.inotify_file):
+        os.utime(config.inotify_file, None)
+    else:
+        open(config.inotify_file, 'w').close()
+
+
+class DbSpool(object):
+    def __init__(self, sqlite_file):
+        self.db = sqlite3.connect(sqlite_file)
+        self.db.execute('''create table if not exists nagios2mantis (
+id integer primary key,
+summary text,
+plugin_output text,
+project_id integer);''')
+
+    def close(self):
+        self.db.close()
+
+    def add(self, summary, plugin_output, project_id):
+        request_params = {
+            'summary': summary,
+            'plugin_output': plugin_output,
+            'project_id': project_id
+        }
+        self.db.execute('insert into nagios2mantis (summary, plugin_output, '
+                        'project_id) values (:summary, :plugin_output, '
+                        ':project_id);', request_params)
+        self.db.commit()
+
+    def rows(self):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT id, summary, plugin_output, project_id '
+                       'FROM nagios2mantis')
+        try:
+            return cursor.fetchall()
+        finally:
+            cursor.close()
+
+    def delete(self, id):
+        self.db.execute('DELETE FROM nagios2mantis WHERE id = :id;',
+                        {'id': id})
+        self.db.commit()
+
+    def rollback(self):
+        self.db.rollback()
+
 
 # Read command line arguments
 parser = argparse.ArgumentParser(description='Sends Nagios alerts to Mantis')
-parser.add_argument(
-    '--hostname',
-    help='Nagios hostname',
-    required=True
-)
-parser.add_argument(
-    '--service',
-    help='Nagios service. ' +
-    'Do not define the service if the alerts is about a host'
-)
-parser.add_argument(
-    '--notification-type',
-    help='Nagios notification type',
-    choices=['PROBLEM', 'RECOVERY'],
-    required=True
-)
-parser.add_argument(
-    '--state',
-    help='Nagios service or host state',
-    choices=['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN', 'PENDING'],
-    required=True
-)
-parser.add_argument(
-    '--plugin-output',
-    help='Nagios plugin output',
-    required=True
-)
-parser.add_argument(
-    '--host-notes',
-    help='Nagios host notes: YAML formatted mantis_project_id'
-)
 parser.add_argument(
     '--configuration-file',
     help='INI file containing Mantis parameters',
     default='/etc/nagios2mantis.ini'
 )
+subparsers = parser.add_subparsers()
+
+empty_parser = subparsers.add_parser('empty')
+empty_parser.set_defaults(func=empty)
+
+spool_parser = subparsers.add_parser('spool')
+spool_parser.add_argument(
+    '--hostname',
+    help='Nagios hostname',
+    required=True
+)
+spool_parser.add_argument(
+    '--service',
+    help='Nagios service. ' +
+    'Do not define the service if the alerts is about a host'
+)
+spool_parser.add_argument(
+    '--notification-type',
+    help='Nagios notification type',
+    choices=['PROBLEM', 'RECOVERY'],
+    required=True
+)
+spool_parser.add_argument(
+    '--state',
+    help='Nagios service or host state',
+    choices=['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN', 'PENDING'],
+    required=True
+)
+spool_parser.add_argument(
+    '--plugin-output',
+    help='Nagios plugin output',
+    required=True
+)
+spool_parser.add_argument(
+    '--host-notes',
+    help='Nagios host notes: YAML formatted mantis_project_id'
+)
+spool_parser.set_defaults(func=spool)
 
 args = parser.parse_args()
-
-# Open a Mantis issue only if Nagios sends a problem notification. Issues are
-# closed by the staff
-if args.notification_type == 'RECOVERY':
-    exit()
-
-# Read parameters from configuration file
-config = ConfigParser.RawConfigParser()
-config.read(args.configuration_file)
-wsdl              = config.get('Mantis', 'wsdl')
-username          = config.get('Mantis', 'username')
-password          = config.get('Mantis', 'password')
-mantis_project_id = config.get('Mantis', 'default_mantis_project_id')
-issue_description = unicode(config.get('Mantis', 'issue_description'), 'UTF-8')
-category_name     = unicode(config.get('Mantis', 'category_name'), 'UTF-8')
-
-# Fetch project list
-mantis = WSDL.Proxy(wsdl)
-
-# Parse args.host_notes
-if args.host_notes is not None and args.host_notes is not '':
-    host_notes = yaml.load(args.host_notes)
-    mantis_project_id = host_notes['mantis_project_id']
-
-# Host alert
-if args.service == None:
-    summary = '{hostname} is {state}'.format(
-        hostname = args.hostname,
-        state    = args.state,
-    )
-# Service alert
-else:
-    summary = '{service} is {state} on host {hostname}'.format(
-        service  = args.service,
-        state    = args.state,
-        hostname = args.hostname,
-    )
-
-issue = {
-    'summary': summary,
-    'description': issue_description.format(plugin_output = args.plugin_output),
-    'category': category_name,
-    'project': {
-        'id': mantis_project_id
-    },
-}
-
-# Open Mantis issue
-mantis.mc_issue_add(username, password, issue);
+args.func(args)
