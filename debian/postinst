@@ -17,11 +17,28 @@
 
 set -e
 
+if [ "$1" != "configure" ]
+then
+    exit 0
+fi
+
+# Create SQLite database if needed
+sqlite=/var/lib/nagios2mantis/spool.sqlite
+if [ ! -f $sqlite ]
+then
+    mkdir -p $(dirname $sqlite)
+    touch $sqlite
+    chown nagios:nagios $sqlite "$(dirname $sqlite)"
+    chmod 600 $sqlite
+fi
+
+# Create inotify file if needed
 inotify_file=/var/lib/nagios2mantis/nagios2mantis.inotify
 if [ ! -f $inotify_file ]
 then
     mkdir -p $(dirname $inotify_file)
     touch $inotify_file
+    chown nagios:nagios $inotify_file "$(dirname $inotify_file)"
 
     # Restart incrond
     /etc/init.d/incron restart
