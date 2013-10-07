@@ -14,7 +14,6 @@ Depends: nagios3,
     python-configparser,
     python-argparse,
     python-yaml,
-    python-sqlite,
     incron,
     ${misc:Depends}
 # See http://bugs.debian.org/717675
