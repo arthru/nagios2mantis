@@ -1,0 +1,2 @@
+# Empty the spool when a file has been created
+/var/lib/nagios2mantis/nagios2mantis.inotify IN_CREATE,IN_CLOSE_NOWRITE nagios2mantis empty

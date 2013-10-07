@@ -15,6 +15,7 @@ Depends: nagios3,
     python-argparse,
     python-yaml,
     python-sqlite,
+    incron,
     ${misc:Depends}
 # See http://bugs.debian.org/717675
 Conflicts: python-m2crypto
