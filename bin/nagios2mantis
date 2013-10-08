@@ -75,6 +75,7 @@ username          = config.get('Mantis', 'username')
 password          = config.get('Mantis', 'password')
 mantis_project_id = config.get('Mantis', 'default_mantis_project_id')
 issue_description = unicode(config.get('Mantis', 'issue_description'), 'UTF-8')
+category_name     = unicode(config.get('Mantis', 'category_name'), 'UTF-8')
 
 # Fetch project list
 mantis = WSDL.Proxy(wsdl)
@@ -101,7 +102,7 @@ else:
 issue = {
     'summary': summary,
     'description': issue_description.format(plugin_output = args.plugin_output),
-    'category': 'General',
+    'category': category_name,
     'project': {
         'id': mantis_project_id
     },
