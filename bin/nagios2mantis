@@ -9,7 +9,8 @@
 #
 # This program is distributed in the hope that it will be useful, but WITHOUT
 # ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+# details.
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <http://www.gnu.org/licenses/>.
@@ -20,13 +21,15 @@ import argparse
 import yaml
 from sys import exit
 import sqlite3
-from SOAPpy import WSDL
+from SOAPpy import WSDL, faultType
 import os
 import logging
+import sys
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout)
 
-NAGIOS_STATES = ['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN', 'PENDING']
+NAGIOS_STATES = ['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN',
+                 'PENDING']
 
 
 class Config(RawConfigParser):
@@ -46,8 +49,6 @@ class Config(RawConfigParser):
         self.inotify_file = self.get('Mantis2nagios', 'inotify_file')
 
 
-
-
 def get_summary(hostname, state, service):
     # Host alert
     if service is None:
@@ -62,17 +63,6 @@ def get_summary(hostname, state, service):
         hostname=hostname,
     )
 
-def get_id_from_summary(mantis, config, hostname, service):
-    for state in NAGIOS_STATES: 
-        summary = get_summary(hostname, state, service)
-        issue_id = mantis.mc_issue_get_id_from_summary(
-            config.username,
-            config.password,
-            summary
-        )
-        if issue_id != 0:
-            return issue_id
-    return None
 
 def empty(args):
     config = Config(args.configuration_file)
@@ -81,37 +71,55 @@ def empty(args):
     db_spool = DbSpool(config.sqlite_file)
     for row in db_spool.rows():
         row_id, hostname, state, service, plugin_output, project_id = row
-    
-        issue = {
-            'summary': get_summary(hostname, state, service),
-            'description': config.issue_description.format(
-                plugin_output=plugin_output
-            ),
-            'category': config.category_name,
-            'project': {
-                'id': project_id
-            },
-        }
+
+        summary = get_summary(hostname, state, service)
 
         try:
             # Find an existing issue
-            issue_id = get_id_from_summary(mantis, config, hostname, service)
+            issue_id = db_spool.get_issue_id(hostname, service)
+            try:
+                issue = mantis.mc_issue_get(
+                    config.username,
+                    config.password,
+                    issue_id
+                )
+            except faultType:
+                issue = None
+            if issue and issue['status']['id'] in [80, 90]:
+                db_spool.del_relation(hostname, service)
+                issue_id = None
             # if an issue already exists
             if issue_id is None:
+                issue = {
+                    'summary': summary,
+                    'description': config.issue_description.format(
+                        plugin_output=plugin_output
+                    ),
+                    'category': config.category_name,
+                    'project': {
+                        'id': project_id
+                    },
+                }
                 # Open Mantis issue
-                logger.info('Add an issue \'%s\'', issue['summary'])
-                mantis.mc_issue_add(config.username, config.password, issue)
+                logging.info('Add an issue \'%s\'', issue['summary'])
+                issue_id = mantis.mc_issue_add(
+                    config.username,
+                    config.password,
+                    issue
+                )
+                db_spool.add_relation(hostname, service, issue_id)
             else:
                 # Add a note
-                logger.info('Add a note \'%s\' to issue %d', issue['summary'], issue_id)
+                logging.info('Add a note \'%s\' to issue %d', issue['summary'],
+                            issue_id)
                 mantis.mc_issue_note_add(
                     config.username,
                     config.password,
                     issue_id,
-                    {'text': issue['summary']}
+                    {'text': summary}
                 )
         except:
-            logger.exception('An error occured with Mantis webservice')
+            logging.exception('An error occured with Mantis webservice')
         else:
             db_spool.delete(row_id)
 
@@ -132,9 +140,9 @@ def spool(args):
     else:
         project_id = config.project_id
 
-
     db_spool = DbSpool(config.sqlite_file)
-    db_spool.add(args.hostname, args.state, args.service, args.plugin_output, project_id)
+    db_spool.add(args.hostname, args.state, args.service, args.plugin_output,
+                 project_id)
     db_spool.close()
 
     if os.path.exists(config.inotify_file):
@@ -153,6 +161,50 @@ state text,
 service text,
 plugin_output text,
 project_id integer);''')
+        self.db.execute('create table if not exists nagios_mantis_relation('
+                        'hostname text, service text, issue_id integer)')
+
+    def add_relation(self, hostname, service, issue_id):
+        db_issue_id = self.get_issue_id(hostname, service)
+        assert not db_issue_id, 'A relation for hostname %s and service %s and '\
+            'with issue_id %d already exists' % (hostname, service, issue_id)
+
+        params = {
+            'hostname': hostname,
+            'service': service,
+            'issue_id': issue_id
+        }
+        self.db.execute(
+            'insert into nagios_mantis_relation (hostname, service, issue_id) '
+            'values (:hostname, :service, :issue_id);',
+            params
+        )
+        self.db.commit()
+
+    def get_issue_id(self, hostname, service):
+        cursor = self.db.cursor()
+        cursor.execute(
+            'select issue_id from nagios_mantis_relation where '
+            'hostname = :hostname and service = :service',
+            {'hostname': hostname, 'service': service}
+        )
+        try:
+            rows = cursor.fetchall()
+            assert len(rows) <= 1, 'More than one issue found for hostname %s '\
+                'and service %s' % [hostname, service]
+            if len(rows) == 0:
+                return None
+            return rows[0][0]
+        finally:
+            cursor.close()
+
+    def del_relation(self, hostname, service):
+        self.db.execute(
+            'DELETE FROM nagios_mantis_relation WHERE '
+            'hostname = :hostname and service = :service;',
+            {'hostname': hostname, 'service': service}
+        )
+        self.db.commit()
 
     def close(self):
         self.db.close()
@@ -191,17 +243,18 @@ project_id integer);''')
 
 def main():
     # Read command line arguments
-    parser = argparse.ArgumentParser(description='Sends Nagios alerts to Mantis')
+    parser = argparse.ArgumentParser(
+        description='Sends Nagios alerts to Mantis')
     parser.add_argument(
         '--configuration-file',
         help='INI file containing Mantis parameters',
         default='/etc/nagios2mantis.ini'
     )
     subparsers = parser.add_subparsers()
-    
+
     empty_parser = subparsers.add_parser('empty')
     empty_parser.set_defaults(func=empty)
-    
+
     spool_parser = subparsers.add_parser('spool')
     spool_parser.add_argument(
         '--hostname',
@@ -235,7 +288,7 @@ def main():
         help='Nagios host notes: YAML formatted mantis_project_id'
     )
     spool_parser.set_defaults(func=spool)
-    
+
     args = parser.parse_args()
     args.func(args)
 
