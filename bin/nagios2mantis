@@ -43,7 +43,7 @@ class Config(RawConfigParser):
         self.project_id = self.get('Mantis', 'default_mantis_project_id')
         self.issue_description = unicode(self.get(
             'Mantis', 'issue_description'), 'UTF-8')
-        self.category_name = unicode(config.get('Mantis', 'category_name'),
+        self.category_name = unicode(self.get('Mantis', 'category_name'),
                                      'UTF-8')
         self.sqlite_file = self.get('Mantis2nagios', 'sqlite_file')
         self.inotify_file = self.get('Mantis2nagios', 'inotify_file')
@@ -85,11 +85,12 @@ def empty(args):
                 )
             except faultType:
                 issue = None
-            if issue and issue['status']['id'] in [80, 90]:
+            if issue is None or issue['status']['id'] in [80, 90]:
                 db_spool.del_relation(hostname, service)
                 issue_id = None
+                issue = None
             # if an issue already exists
-            if issue_id is None:
+            if issue is None:
                 issue = {
                     'summary': summary,
                     'description': config.issue_description.format(
@@ -110,7 +111,7 @@ def empty(args):
                 db_spool.add_relation(hostname, service, issue_id)
             else:
                 # Add a note
-                logging.info('Add a note \'%s\' to issue %d', issue['summary'],
+                logging.info('Add a note \'%s\' to issue %d', summary,
                             issue_id)
                 mantis.mc_issue_note_add(
                     config.username,
