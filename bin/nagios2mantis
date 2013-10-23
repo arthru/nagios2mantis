@@ -64,94 +64,127 @@ def get_summary(hostname, state, service):
     )
 
 
-def empty(args):
-    config = Config(args.configuration_file)
+class Nagios2Mantis(object):
+    def __init__(self, config):
+        self.config = config
+        self.mantis = WSDL.Proxy(config.wsdl)
+        self.db_spool = DbSpool(config.sqlite_file)
 
-    mantis = WSDL.Proxy(config.wsdl)
-    db_spool = DbSpool(config.sqlite_file)
-    for row in db_spool.rows():
-        row_id, hostname, state, service, plugin_output, project_id = row
+    def empty_cache(self):
+        for row in self.db_spool.rows():
+            self.empty_row(row)
+        self.db_spool.close()
 
-        summary = get_summary(hostname, state, service)
-
+    def find_issue(self, hostname, service):
         # Find an existing issue
-        issue_id = db_spool.get_issue_id(hostname, service)
+        issue_id = self.db_spool.get_issue_id(hostname, service)
         try:
-            issue = mantis.mc_issue_get(
-                config.username,
-                config.password,
+            issue = self.mantis.mc_issue_get(
+                self.config.username,
+                self.config.password,
                 issue_id
             )
         except faultType:
             issue = None
         if issue is None or issue['status']['id'] in [80, 90]:
-            db_spool.del_relation(hostname, service)
-            issue_id = None
+            self.db_spool.del_relation(hostname, service)
             issue = None
+        return issue
+
+    def add_issue(self, hostname, service, issue, row_id):
+        try:
+            # Open Mantis issue
+            logging.info('Add an issue \'%s\'', issue['summary'])
+            issue_id = self.mantis.mc_issue_add(
+                self.config.username,
+                self.config.password,
+                issue
+            )
+            self.db_spool.add_relation(hostname, service, issue_id)
+        except faultType:
+            logging.exception(
+                'An error occured while adding an issue in Mantis. '
+                'Params where (%s, %s, %s).',
+                self.config.username,
+                self.config.password,
+                issue
+            )
+        else:
+            self.db_spool.delete(row_id)
+
+    def empty_row(self, row):
+        row_id, hostname, state, service, plugin_output, project_id = row
+
+        summary = get_summary(hostname, state, service)
+
+        issue = self.find_issue(hostname, service)
         # if an issue already exists
         if issue is None:
             issue = {
                 'summary': summary,
-                'description': config.issue_description.format(
+                'description': self.config.issue_description.format(
                     plugin_output=plugin_output
                 ),
-                'category': config.category_name,
+                'category': self.config.category_name,
                 'project': {
                     'id': project_id
                 },
             }
-            try:
-                # Open Mantis issue
-                logging.info('Add an issue \'%s\'', issue['summary'])
-                issue_id = mantis.mc_issue_add(
-                    config.username,
-                    config.password,
-                    issue
-                )
-                db_spool.add_relation(hostname, service, issue_id)
-            except faultType:
-                logging.exception(
-                    'An error occured while adding an issue in Mantis. '
-                    'Params where (%s, %s, %s).',
-                    self.config.username,
-                    self.config.password,
-                    issue
-                )
-            else:
-                db_spool.delete(row_id)
+            self.add_issue(hostname, service, issue, row_id)
         else:
-            try:
-                # Add a note
-                logging.info('Add a note \'%s\' to issue %d', summary,
-                            issue_id)
-                note = {'text': summary}
-                mantis.mc_issue_note_add(
-                    config.username,
-                    config.password,
-                    issue_id,
-                    note
-                )
-            except faultType:
-                logging.exception(
-                    'An error occured while adding a note in Mantis. '
-                    'Params where (%s, %s, %d, %s).',
-                    config.username,
-                    config.password,
-                    issue_id,
-                    note
-                )
-            else:
-                db_spool.delete(row_id)
+            self.add_note(issue['id'], summary, row_id)
 
-    db_spool.close()
+    def add_note(self, issue_id, summary, row_id):
+        try:
+            # Add a note
+            logging.info('Add a note \'%s\' to issue %d', summary,
+                         issue_id)
+            note = {'text': summary}
+            self.mantis.mc_issue_note_add(
+                self.config.username,
+                self.config.password,
+                issue_id,
+                note
+            )
+        except faultType:
+            logging.exception(
+                'An error occured while adding a note in Mantis. '
+                'Params where (%s, %s, %d, %s).',
+                self.config.username,
+                self.config.password,
+                issue_id,
+                note
+            )
+        else:
+            self.db_spool.delete(row_id)
+
+    def spool(self, hostname, state, service, plugin_output, project_id):
+        self.db_spool.add(hostname, state, service, plugin_output,
+                          project_id)
+        self.db_spool.close()
+        self.notify()
+
+    def notify(self):
+        if os.path.exists(self.config.inotify_file):
+            os.utime(self.config.inotify_file, None)
+        else:
+            open(self.config.inotify_file, 'w').close()
+
+
+def empty(args):
+    config = Config(args.configuration_file)
+    nagios2mantis = Nagios2Mantis(config)
+    nagios2mantis.empty_cache()
 
 
 def spool(args):
-    config = Config(args.configuration_file)
     # Open a Mantis issue only if Nagios sends a problem notification. Issues
     # are closed by the staff
     if args.notification_type == 'RECOVERY':
         exit()
+
+    config = Config(args.configuration_file)
+    nagios2mantis = Nagios2Mantis(config)
 
     # Parse args.host_notes
     if args.host_notes is not None and args.host_notes is not '':
@@ -160,15 +193,8 @@ def spool(args):
     else:
         project_id = config.project_id
 
-    db_spool = DbSpool(config.sqlite_file)
-    db_spool.add(args.hostname, args.state, args.service, args.plugin_output,
-                 project_id)
-    db_spool.close()
-
-    if os.path.exists(config.inotify_file):
-        os.utime(config.inotify_file, None)
-    else:
-        open(config.inotify_file, 'w').close()
+    nagios2mantis.spool(args.hostname, args.state, args.service,
+                        args.plugin_output, project_id)
 
 
 class DbSpool(object):
@@ -186,8 +212,9 @@ project_id integer);''')
 
     def add_relation(self, hostname, service, issue_id):
         db_issue_id = self.get_issue_id(hostname, service)
-        assert not db_issue_id, 'A relation for hostname %s and service %s and '\
-            'with issue_id %d already exists' % (hostname, service, issue_id)
+        assert not db_issue_id, 'A relation for hostname %s and service %s '\
+            'and with issue_id %d already exists' % (hostname, service,
+                                                     issue_id)
 
         params = {
             'hostname': hostname,
@@ -210,8 +237,8 @@ project_id integer);''')
         )
         try:
             rows = cursor.fetchall()
-            assert len(rows) <= 1, 'More than one issue found for hostname %s '\
-                'and service %s' % [hostname, service]
+            assert len(rows) <= 1, 'More than one issue found for hostname '\
+                '%s and service %s' % (hostname, service)
             if len(rows) == 0:
                 return None
             return rows[0][0]
