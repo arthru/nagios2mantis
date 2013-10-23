@@ -74,33 +74,33 @@ def empty(args):
 
         summary = get_summary(hostname, state, service)
 
+        # Find an existing issue
+        issue_id = db_spool.get_issue_id(hostname, service)
         try:
-            # Find an existing issue
-            issue_id = db_spool.get_issue_id(hostname, service)
+            issue = mantis.mc_issue_get(
+                config.username,
+                config.password,
+                issue_id
+            )
+        except faultType:
+            issue = None
+        if issue is None or issue['status']['id'] in [80, 90]:
+            db_spool.del_relation(hostname, service)
+            issue_id = None
+            issue = None
+        # if an issue already exists
+        if issue is None:
+            issue = {
+                'summary': summary,
+                'description': config.issue_description.format(
+                    plugin_output=plugin_output
+                ),
+                'category': config.category_name,
+                'project': {
+                    'id': project_id
+                },
+            }
             try:
-                issue = mantis.mc_issue_get(
-                    config.username,
-                    config.password,
-                    issue_id
-                )
-            except faultType:
-                issue = None
-            if issue is None or issue['status']['id'] in [80, 90]:
-                db_spool.del_relation(hostname, service)
-                issue_id = None
-                issue = None
-            # if an issue already exists
-            if issue is None:
-                issue = {
-                    'summary': summary,
-                    'description': config.issue_description.format(
-                        plugin_output=plugin_output
-                    ),
-                    'category': config.category_name,
-                    'project': {
-                        'id': project_id
-                    },
-                }
                 # Open Mantis issue
                 logging.info('Add an issue \'%s\'', issue['summary'])
                 issue_id = mantis.mc_issue_add(
@@ -109,20 +109,39 @@ def empty(args):
                     issue
                 )
                 db_spool.add_relation(hostname, service, issue_id)
+            except faultType:
+                logging.exception(
+                    'An error occured while adding an issue in Mantis. '
+                    'Params where (%s, %s, %s).',
+                    self.config.username,
+                    self.config.password,
+                    issue
+                )
             else:
+                db_spool.delete(row_id)
+        else:
+            try:
                 # Add a note
                 logging.info('Add a note \'%s\' to issue %d', summary,
                             issue_id)
+                note = {'text': summary}
                 mantis.mc_issue_note_add(
                     config.username,
                     config.password,
                     issue_id,
-                    {'text': summary}
+                    note
                 )
-        except:
-            logging.exception('An error occured with Mantis webservice')
-        else:
-            db_spool.delete(row_id)
+            except faultType:
+                logging.exception(
+                    'An error occured while adding a note in Mantis. '
+                    'Params where (%s, %s, %d, %s).',
+                    config.username,
+                    config.password,
+                    issue_id,
+                    note
+                )
+            else:
+                db_spool.delete(row_id)
 
     db_spool.close()
 
