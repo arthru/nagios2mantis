@@ -43,6 +43,8 @@ class Config(RawConfigParser):
         self.project_id = self.get('Mantis', 'default_mantis_project_id')
         self.issue_description = unicode(self.get(
             'Mantis', 'issue_description'), 'UTF-8')
+        self.note_description = unicode(self.get(
+            'Mantis', 'note_description'), 'UTF-8')
         self.category_name = unicode(self.get('Mantis', 'category_name'),
                                      'UTF-8')
         self.sqlite_file = self.get('Mantis2nagios', 'sqlite_file')
@@ -132,7 +134,10 @@ class Nagios2Mantis(object):
             }
             self.add_issue(hostname, service, issue, row_id)
         else:
-            self.add_note(issue['id'], summary, row_id)
+            self.add_note(issue['id'],
+                          self.config.note_description.format(
+                              plugin_output=plugin_output),
+                          row_id)
 
     def add_note(self, issue_id, summary, row_id):
         try:
