@@ -184,11 +184,11 @@ def spool(args):
     nagios2mantis = Nagios2Mantis(config)
 
     # Parse args.host_notes
+    project_id = config.project_id
     if args.host_notes is not None and args.host_notes is not '':
         host_notes = yaml.load(args.host_notes)
-        project_id = host_notes['mantis_project_id']
-    else:
-        project_id = config.project_id
+        if 'mantis_project_id' in host_notes:
+            project_id = host_notes['mantis_project_id']
 
     nagios2mantis.spool(args.hostname, args.state, args.service,
                         args.plugin_output, project_id)
