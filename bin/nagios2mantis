@@ -170,10 +170,7 @@ class Nagios2Mantis(object):
         self.notify()
 
     def notify(self):
-        if os.path.exists(self.config.inotify_file):
-            os.utime(self.config.inotify_file, None)
-        else:
-            open(self.config.inotify_file, 'w').close()
+        open(self.config.inotify_file, 'w').close()
 
 
 def empty(args):
