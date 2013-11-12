@@ -183,11 +183,6 @@ def empty(args):
 
 
 def spool(args):
-    # Open a Mantis issue only if Nagios sends a problem notification. Issues
-    # are closed by the staff
-    if args.notification_type == 'RECOVERY':
-        exit()
-
     config = Config(args.configuration_file)
     nagios2mantis = Nagios2Mantis(config)
 
@@ -317,12 +312,6 @@ def main():
         '--service',
         help='Nagios service. ' +
         'Do not define the service if the alerts is about a host'
-    )
-    spool_parser.add_argument(
-        '--notification-type',
-        help='Nagios notification type',
-        choices=['PROBLEM', 'RECOVERY'],
-        required=True
     )
     spool_parser.add_argument(
         '--state',
