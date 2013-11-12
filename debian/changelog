@@ -1,3 +1,10 @@
+nagios2mantis (2.0-3) unstable; urgency=low
+
+  * bin/nagios2mantis, etc/nagios2mantis.ini: add 'state' in add_note
+    template.
+
+ -- Cyril Bouthors <cyril@bouthors.org>  Tue, 12 Nov 2013 17:04:15 +0100
+
 nagios2mantis (2.0-2) unstable; urgency=low
 
   * bin/nagios2mantis: typo in SQL query

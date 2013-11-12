@@ -136,6 +136,7 @@ class Nagios2Mantis(object):
         else:
             self.add_note(issue['id'],
                           self.config.note_description.format(
+                              state=state,
                               plugin_output=plugin_output),
                           row_id)
 
