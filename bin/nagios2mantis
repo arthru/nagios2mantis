@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
             'issue_id': issue_id
         }
         self.db.execute('''
-        INSERT INTO nagios_mantis_relation (hostname, service, issue_id) '
+        INSERT INTO nagios_mantis_relation (hostname, service, issue_id)
         VALUES (:hostname, :service, :issue_id);''', params )
         self.db.commit()
 
