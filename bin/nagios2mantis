@@ -196,17 +196,22 @@ def spool(args):
 
 class DbSpool(object):
     def __init__(self, sqlite_file):
-        self.db = sqlite3.connect(sqlite_file)
-        self.db.execute('''create table if not exists nagios2mantis (
-id integer primary key,
-hostname text,
-state text,
-service text,
-plugin_output text,
-project_id integer);''')
-        self.db.execute('create table if not exists nagios_mantis_relation('
-                        'hostname text, service text, issue_id integer)')
         self.db = sqlite3.connect(sqlite_file, timeout=120)
+        self.db.execute('''
+CREATE TABLE IF NOT EXISTS nagios2mantis (
+  id INTEGER PRIMARY KEY,
+  hostname TEXT,
+  state TEXT,
+  service TEXT,
+  plugin_output TEXT,
+  project_id INTEGER);
+''')
+        self.db.execute('''
+CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
+  hostname TEXT,
+  service TEXT,
+  issue_id INTEGER
+)''')
 
     def add_relation(self, hostname, service, issue_id):
         db_issue_id = self.get_issue_id(hostname, service)
@@ -219,19 +224,21 @@ project_id integer);''')
             'service': service,
             'issue_id': issue_id
         }
-        self.db.execute(
-            'insert into nagios_mantis_relation (hostname, service, issue_id) '
-            'values (:hostname, :service, :issue_id);',
-            params
-        )
+        self.db.execute('''
+        INSERT INTO nagios_mantis_relation (hostname, service, issue_id) '
+        VALUES (:hostname, :service, :issue_id);''', params )
         self.db.commit()
 
     def get_issue_id(self, hostname, service):
         cursor = self.db.cursor()
         cursor.execute(
-            'select issue_id from nagios_mantis_relation where '
-            'hostname = :hostname and service = :service',
-            {'hostname': hostname, 'service': service}
+            '''SELECT issue_id
+            FROM nagios_mantis_relation
+            WHERE hostname = :hostname AND service = :service''',
+            {
+                'hostname': hostname,
+                'service': service
+            }
         )
         try:
             rows = cursor.fetchall()
@@ -245,9 +252,12 @@ project_id integer);''')
 
     def del_relation(self, hostname, service):
         self.db.execute(
-            'DELETE FROM nagios_mantis_relation WHERE '
-            'hostname = :hostname and service = :service;',
-            {'hostname': hostname, 'service': service}
+            '''DELETE FROM nagios_mantis_relation
+            WHERE hostname = :hostname AND service = :service;''',
+            {
+                'hostname': hostname,
+                'service': service
+            }
         )
         self.db.commit()
 
@@ -262,23 +272,25 @@ project_id integer);''')
             'plugin_output': plugin_output,
             'project_id': project_id
         }
-        self.db.execute('insert into nagios2mantis (hostname, state, service,'
-                        'plugin_output, project_id) values (:hostname, :state,'
-                        ':service, :plugin_output, :project_id);',
+        self.db.execute('''INSERT INTO nagios2mantis
+        (hostname, state, service, plugin_output, project_id)
+        VALUES (:hostname, :state, :service, :plugin_output, :project_id);''',
                         request_params)
         self.db.commit()
 
     def rows(self):
         cursor = self.db.cursor()
-        cursor.execute('SELECT id, hostname, state, service, plugin_output, '
-                       'project_id FROM nagios2mantis')
+        cursor.execute('''
+        SELECT id, hostname, state, service, plugin_output, project_id
+        FROM nagios2mantis''')
         try:
             return cursor.fetchall()
         finally:
             cursor.close()
 
     def delete(self, id):
-        self.db.execute('DELETE FROM nagios2mantis WHERE id = :id;',
+        self.db.execute('''DELETE FROM nagios2mantis
+        WHERE id = :id;''',
                         {'id': id})
         self.db.commit()
 
