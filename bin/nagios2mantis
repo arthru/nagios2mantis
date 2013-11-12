@@ -154,9 +154,8 @@ class Nagios2Mantis(object):
         except faultType:
             logging.exception(
                 'An error occured while adding a note in Mantis. '
-                'Params where (%s, %s, %d, %s).',
+                'Params where (%s, %d, %s).',
                 self.config.username,
-                self.config.password,
                 issue_id,
                 note
             )
