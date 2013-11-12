@@ -1,3 +1,15 @@
+nagios2mantis (2.0-1) unstable; urgency=low
+
+  * New release.
+  * Open a new ticket if the found one is already closed, #6.
+  * Packaging, #5.
+  * Use a local spool if Mantis is not available, #4.
+  * Add a note instead of opening a new ticket if a ticket with the same
+    hostname+service is already open, #1
+  * Nagios plugin to check that the sqlite spool is empty, #3.
+
+ -- Cyril Bouthors <cyril@bouthors.org>  Tue, 12 Nov 2013 15:46:45 +0100
+
 nagios2mantis (1.1-4) unstable; urgency=low
 
   * etc/nagios2mantis.ini: typo in 'category_name' format
