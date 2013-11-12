@@ -206,6 +206,7 @@ plugin_output text,
 project_id integer);''')
         self.db.execute('create table if not exists nagios_mantis_relation('
                         'hostname text, service text, issue_id integer)')
+        self.db = sqlite3.connect(sqlite_file, timeout=120)
 
     def add_relation(self, hostname, service, issue_id):
         db_issue_id = self.get_issue_id(hostname, service)
