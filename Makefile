@@ -28,6 +28,8 @@ man/nagios2mantis.1: bin/nagios2mantis
 	help2man --name $(@F) --version-string=1.0 --no-discard-stderr $< -o $@
 
 install:
+	./setup.py install --prefix=debian/nagios2mantis/usr \
+		--install-layout=deb
 	mkdir -p $(DESTDIR)/usr/bin
 	cp -p bin/* $(DESTDIR)/usr/bin
 	cp -pr etc $(DESTDIR)

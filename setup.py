@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2013 Cyril Bouthors <cyril@boutho.rs>
+# Copyright (C) 2012 Cyril Bouthors <cyril@bouthors.org>
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -16,7 +16,15 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import nagios2mantis
+from distutils.core import setup
 
-if __name__ == '__main__':
-    nagios2mantis.main()
+setup(
+    name='nagios2mantis',
+    version='2.0',
+    description='Converts Nagios notifications to Mantis issues thanks to the '
+                'Soap API.',
+    author='Cyril Bouthors',
+    author_email='cyril@boutho.rs',
+    url='http://cyril.boutho.rs/',
+    packages=['nagios2mantis'],
+)
