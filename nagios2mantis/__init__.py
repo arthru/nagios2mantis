@@ -228,16 +228,16 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         self.db.commit()
 
     def get_issue_id(self, hostname, service):
-        cursor = self.db.cursor()
-        cursor.execute(
-            '''SELECT issue_id
+        if service is None:
+            request = '''SELECT issue_id
             FROM nagios_mantis_relation
-            WHERE hostname = :hostname AND service = :service''',
-            {
-                'hostname': hostname,
-                'service': service
-            }
-        )
+            WHERE hostname = :hostname AND service IS :service;'''
+        else:
+            request = '''SELECT issue_id
+            FROM nagios_mantis_relation
+            WHERE hostname = :hostname AND service = :service;'''
+        cursor = self.db.cursor()
+        cursor.execute(request, {'hostname': hostname, 'service': service})
         try:
             rows = cursor.fetchall()
             assert len(rows) <= 1, 'More than one issue found for hostname '\
@@ -249,14 +249,14 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
             cursor.close()
 
     def del_relation(self, hostname, service):
-        self.db.execute(
-            '''DELETE FROM nagios_mantis_relation
-            WHERE hostname = :hostname AND service = :service;''',
-            {
-                'hostname': hostname,
-                'service': service
-            }
-        )
+        if service is None:
+            request = '''DELETE FROM nagios_mantis_relation
+            WHERE hostname = :hostname AND service IS :service;'''
+        else:
+            request = '''DELETE FROM nagios_mantis_relation
+            WHERE hostname = :hostname AND service = :service;'''
+
+        self.db.execute(request, {'hostname': hostname, 'service': service})
         self.db.commit()
 
     def close(self):

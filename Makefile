@@ -15,8 +15,11 @@
 #
 
 DESTDIR=/usr/local
+COVERAGE?=coverage
+COVERAGE_REPORT=$(COVERAGE) report -m
+COVERAGE_PARSE_RATE=$(COVERAGE_REPORT) | tail -n 1 | sed "s/ \+/ /g" | cut -d" " -f4
 
-all: man/nagios2mantis.1;
+all: tests man/nagios2mantis.1;
 
 include autobuild.mk
 
@@ -35,3 +38,11 @@ install:
 	cp -pr etc $(DESTDIR)
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	cp -p man/*.1 $(DESTDIR)/usr/share/man/man1
+
+tests:
+	$(COVERAGE) run -p --source=nagios2mantis -m unittest tests
+	$(COVERAGE) combine
+	$(COVERAGE_REPORT)
+	if [ "100%" != "`$(COVERAGE_PARSE_RATE)`" ] ; then exit 1 ; fi
+
+.PHONY: all tests clean
