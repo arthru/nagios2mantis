@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         self.db.rollback()
 
 
-def main():
+def main(cli_args):
     # Read command line arguments
     parser = argparse.ArgumentParser(
         description='Sends Nagios alerts to Mantis')
@@ -338,5 +338,5 @@ def main():
     )
     spool_parser.set_defaults(func=spool)
 
-    args = parser.parse_args()
+    args = parser.parse_args(cli_args)
     args.func(args)

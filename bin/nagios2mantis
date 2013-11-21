@@ -16,7 +16,8 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import nagios2mantis
-
 if __name__ == '__main__':
-    nagios2mantis.main()
+    import nagios2mantis
+    import sys
+
+    nagios2mantis.main(sys.argv)
