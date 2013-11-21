@@ -13,6 +13,7 @@ from nagios2mantis import DbSpool
 from nagios2mantis import main
 from nagios2mantis import Config
 from nagios2mantis import Nagios2Mantis
+from nagios2mantis import get_project_id
 
 
 class GetSummaryTest(unittest.TestCase):
@@ -110,6 +111,13 @@ class DbSpoolTest(unittest.TestCase):
         self.spool.delete(1)
         result = self.spool.db.execute('SELECT * FROM nagios2mantis;')
         self.assertEquals(tuple(result), ())
+
+    def test_close(self):
+        self.spool.db = mock.MagicMock()
+
+        self.spool.close()
+
+        self.spool.db.close.assert_called_once_with()
 
 
 class MainTest(unittest.TestCase):
@@ -430,3 +438,21 @@ class Nagios2MantisTest(unittest.TestCase):
         nagios2mantis.db_spool.rows.assert_called_once_with()
         self.assertFalse(nagios2mantis.empty_row.called)
         nagios2mantis.db_spool.close.assert_called_once_with()
+
+
+class GetProjectIdTest(unittest.TestCase):
+    def test_none(self):
+        result = get_project_id(None)
+        self.assertIsNone(result)
+
+    def test_empty(self):
+        result = get_project_id('')
+        self.assertIsNone(result)
+
+    def test_not_yaml(self):
+        result = get_project_id('test')
+        self.assertIsNone(result)
+
+    def test_normal(self):
+        result = get_project_id('mantis_project_id: 1')
+        self.assertEquals(result, 1)

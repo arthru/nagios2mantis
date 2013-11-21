@@ -171,22 +171,25 @@ class Nagios2Mantis(object):
         open(self.config.inotify_file, 'w').close()
 
 
-def empty(args):
+def empty(args):  # pragma: no cover
     config = Config(args.configuration_file)
     nagios2mantis = Nagios2Mantis(config)
     nagios2mantis.empty_cache()
 
 
-def spool(args):
+def get_project_id(host_notes):
+    if host_notes is not None and host_notes is not '':
+        host_notes = yaml.load(host_notes)
+        if 'mantis_project_id' in host_notes:
+            return host_notes['mantis_project_id']
+    return None
+
+
+def spool(args):  # pragma: no cover
     config = Config(args.configuration_file)
     nagios2mantis = Nagios2Mantis(config)
 
-    # Parse args.host_notes
-    project_id = config.project_id
-    if args.host_notes is not None and args.host_notes is not '':
-        host_notes = yaml.load(args.host_notes)
-        if 'mantis_project_id' in host_notes:
-            project_id = host_notes['mantis_project_id']
+    project_id = get_project_id(args.host_notes) or config.project_id
 
     nagios2mantis.spool(args.hostname, args.state, args.service,
                         args.plugin_output, project_id)
@@ -291,9 +294,6 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         WHERE id = :id;''',
                         {'id': id})
         self.db.commit()
-
-    def rollback(self):
-        self.db.rollback()
 
 
 def main(cli_args):
