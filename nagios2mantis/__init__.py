@@ -22,9 +22,6 @@ import yaml
 import sqlite3
 from SOAPpy import WSDL, faultType
 import logging
-import sys
-
-logging.basicConfig(stream=sys.stdout)
 
 NAGIOS_STATES = ['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN',
                  'PENDING']
@@ -67,15 +64,44 @@ def get_summary(hostname, state, service):
 class Nagios2Mantis(object):
     def __init__(self, config):
         self.config = config
-        self.mantis = WSDL.Proxy(config.wsdl)
         self.db_spool = DbSpool(config.sqlite_file)
+
+    @property
+    def mantis(self):
+        if not hasattr(self, '_mantis'):
+            self._mantis = WSDL.Proxy(self.config.wsdl)
+        return self._mantis
 
     def empty_cache(self):
         for row in self.db_spool.rows():
             self.empty_row(row)
         self.db_spool.close()
 
-    def find_issue(self, hostname, service, allow_closed):
+    def empty_row(self, row):
+        row_id, hostname, state, service, plugin_output, project_id = row
+        summary = get_summary(hostname, state, service)
+        issue = self.find_issue(hostname, service)
+
+        if issue is None:
+            issue = {
+                'summary': summary,
+                'description': self.config.issue_description.format(
+                    plugin_output=plugin_output
+                ),
+                'category': self.config.category_name,
+                'project': {
+                    'id': project_id
+                },
+            }
+            self.add_issue(hostname, service, issue, row_id)
+        else:
+            self.add_note(issue['id'],
+                          self.config.note_description.format(
+                              state=state,
+                              plugin_output=plugin_output),
+                          row_id)
+
+    def find_issue(self, hostname, service):
         # Find an existing issue
         issue_id = self.db_spool.get_issue_id(hostname, service)
         try:
@@ -111,32 +137,6 @@ class Nagios2Mantis(object):
             )
         else:
             self.db_spool.delete(row_id)
-
-    def empty_row(self, row):
-        row_id, hostname, state, service, plugin_output, project_id = row
-
-        summary = get_summary(hostname, state, service)
-
-        issue = self.find_issue(hostname, service)
-        # if an issue already exists
-        if issue is None:
-            issue = {
-                'summary': summary,
-                'description': self.config.issue_description.format(
-                    plugin_output=plugin_output
-                ),
-                'category': self.config.category_name,
-                'project': {
-                    'id': project_id
-                },
-            }
-            self.add_issue(hostname, service, issue, row_id)
-        else:
-            self.add_note(issue['id'],
-                          self.config.note_description.format(
-                              state=state,
-                              plugin_output=plugin_output),
-                          row_id)
 
     def add_note(self, issue_id, summary, row_id):
         try:
