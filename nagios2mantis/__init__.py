@@ -17,6 +17,8 @@
 #
 
 from ConfigParser import RawConfigParser
+from datetime import datetime
+from datetime import timedelta
 import argparse
 import yaml
 import sqlite3
@@ -195,6 +197,13 @@ def spool(args):  # pragma: no cover
                         args.plugin_output, project_id)
 
 
+def clean(args):  # pragma: no cover
+    config = Config(args.configuration_file)
+    nagios2mantis = Nagios2Mantis(config)
+    one_month_ago = datetime.now() - timedelta(days=30)
+    nagios2mantis.remove_old_rels(one_month_ago)
+
+
 class DbSpool(object):
     def __init__(self, sqlite_file):
         self.db = sqlite3.connect(sqlite_file, timeout=120)
@@ -211,7 +220,8 @@ CREATE TABLE IF NOT EXISTS nagios2mantis (
 CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
   hostname TEXT,
   service TEXT,
-  issue_id INTEGER
+  issue_id INTEGER,
+  creation DATETIME
 )''')
 
     def add_relation(self, hostname, service, issue_id):
@@ -223,11 +233,13 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         params = {
             'hostname': hostname,
             'service': service,
-            'issue_id': issue_id
+            'issue_id': issue_id,
+            'creation': datetime.now(),
         }
         self.db.execute('''
-        INSERT INTO nagios_mantis_relation (hostname, service, issue_id)
-        VALUES (:hostname, :service, :issue_id);''', params)
+        INSERT INTO nagios_mantis_relation
+        (hostname, service, issue_id, creation)
+        VALUES (:hostname, :service, :issue_id, :creation);''', params)
         self.db.commit()
 
     def get_issue_id(self, hostname, service):
@@ -260,6 +272,14 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
             WHERE hostname = :hostname AND service = :service;'''
 
         self.db.execute(request, {'hostname': hostname, 'service': service})
+        self.db.commit()
+
+    def remove_old_rels(self, creation_date):
+        self.db.execute(
+            'DELETE FROM nagios_mantis_relation '
+            'WHERE creation < :creation_date',
+            {'creation_date': creation_date}
+        )
         self.db.commit()
 
     def close(self):
@@ -309,6 +329,9 @@ def main(cli_args):
 
     empty_parser = subparsers.add_parser('empty')
     empty_parser.set_defaults(func=empty)
+
+    clean_parser = subparsers.add_parser('clean')
+    clean_parser.set_defaults(func=clean)
 
     spool_parser = subparsers.add_parser('spool')
     spool_parser.add_argument(

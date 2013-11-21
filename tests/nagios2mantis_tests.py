@@ -1,4 +1,5 @@
 import ConfigParser
+from datetime import datetime
 import os.path
 import tempfile
 import time
@@ -64,7 +65,7 @@ class DbSpoolTest(unittest.TestCase):
         self.spool.add_relation('hostname', None, 1)
         self.assert_nb_nagios_mantis(1)
         result = self.spool.db.execute('SELECT * FROM nagios_mantis_relation;')
-        self.assertEquals(tuple(result), ((u'hostname', None, 1),))
+        self.assertEquals(tuple(result)[0][:3], (u'hostname', None, 1))
 
     def test_add_relation_raises(self):
         self.spool.add_relation('hostname', None, 1)
@@ -79,6 +80,12 @@ class DbSpoolTest(unittest.TestCase):
     def test_del_relation_service_not_none(self):
         self.spool.add_relation('hostname', 'apache2', 1)
         self.spool.del_relation('hostname', 'apache2')
+        self.assert_nb_nagios_mantis(0)
+
+    def test_remove_old_rels(self):
+        self.spool.add_relation('hostname', 'apache2', 1)
+        time.sleep(1)
+        self.spool.remove_old_rels(datetime.now())
         self.assert_nb_nagios_mantis(0)
 
     def test_add_service_none(self):
@@ -185,6 +192,15 @@ class MainTest(unittest.TestCase):
             self.assertTrue(empty_mock.called)
             self.assertEquals(empty_mock.call_args[0][0].configuration_file,
                               '/tmp/test.ini')
+
+    def test_clean(self):
+        with mock.patch('nagios2mantis.clean') as clean_mock:
+            main(['clean'])
+            self.assertTrue(clean_mock.called)
+            self.assertEquals(clean_mock.call_args[0][0].configuration_file,
+                              '/etc/nagios2mantis.ini')
+            self.assertEquals(clean_mock.call_args[0][0].func,
+                              clean_mock)
 
 
 class ConfigTest(unittest.TestCase):
