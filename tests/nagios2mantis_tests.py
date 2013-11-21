@@ -129,11 +129,11 @@ class DbSpoolTest(unittest.TestCase):
 
 class MainTest(unittest.TestCase):
     def test_unknown_command(self):
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit), mock.patch('sys.stderr'):
             main(['test'])
 
     def test_print_help(self):
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(SystemExit), mock.patch('sys.stdout'):
             main(['-h'])
 
     def test_spool(self):
