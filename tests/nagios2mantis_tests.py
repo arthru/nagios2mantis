@@ -1,3 +1,4 @@
+import ConfigParser
 import unittest
 
 import mock
@@ -5,6 +6,7 @@ import mock
 from nagios2mantis import get_summary
 from nagios2mantis import DbSpool
 from nagios2mantis import main
+from nagios2mantis import Config
 
 
 class GetSummaryTest(unittest.TestCase):
@@ -169,3 +171,26 @@ class MainTest(unittest.TestCase):
             self.assertTrue(empty_mock.called)
             self.assertEquals(empty_mock.call_args[0][0].configuration_file,
                               '/tmp/test.ini')
+
+
+class ConfigTest(unittest.TestCase):
+    def test(self):
+        config = Config('tests/nagios2mantis_test.ini')
+        self.assertEquals(config.wsdl, 'http://your-mantis.com/api/soap/'
+                          'mantisconnect.php?wsdl')
+        self.assertEquals(config.username, 'mantis_login')
+        self.assertEquals(config.password, 'mantis_password')
+        self.assertEquals(config.project_id, '1')
+        self.assertEquals(config.issue_description,
+                          'Nagios error detected: {plugin_output}')
+        self.assertEquals(config.note_description,
+                          'Nagios error detected. {state}: {plugin_output}')
+        self.assertEquals(config.category_name, 'General')
+        self.assertEquals(config.sqlite_file,
+                          '/var/lib/nagios2mantis/spool.sqlite')
+        self.assertEquals(config.inotify_file,
+                          '/var/lib/nagios2mantis/nagios2mantis.inotify')
+
+    def test_fail(self):
+        with self.assertRaises(ConfigParser.NoSectionError):
+            Config('nagios2mantis_test_fail.ini')
