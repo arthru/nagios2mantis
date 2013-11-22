@@ -76,7 +76,10 @@ class Nagios2Mantis(object):
 
     def empty_cache(self):
         for row in self.db_spool.rows():
-            self.empty_row(row)
+            try:
+                self.empty_row(row)
+            except:
+                logging.exception('Treating row whose id is %d failed', row[0])
         self.db_spool.close()
 
     def empty_row(self, row):
@@ -166,10 +169,18 @@ class Nagios2Mantis(object):
             self.db_spool.delete(row_id)
 
     def spool(self, hostname, state, service, plugin_output, project_id):
-        self.db_spool.add(hostname, state, service, plugin_output,
-                          project_id)
-        self.db_spool.close()
-        self.notify()
+        try:
+            self.db_spool.add(hostname, state, service, plugin_output,
+                              project_id)
+            self.db_spool.close()
+            self.notify()
+        except:
+            logging.exception(
+                'An error occured while addind a new item to treat. '
+                'Params where hostname:%s ; state:%s ; service:%s ; '
+                'plugin_output:%s ; project_id:%d',
+                hostname, state, service, plugin_output, project_id
+            )
 
     def notify(self):
         open(self.config.inotify_file, 'w').close()

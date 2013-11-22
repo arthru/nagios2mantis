@@ -258,6 +258,19 @@ class Nagios2MantisTest(unittest.TestCase):
         after_time = os.path.getctime(self.config.inotify_file)
         self.assertNotEquals(before_time, after_time)
 
+    def test_spool_failed(self):
+        nagios2mantis = Nagios2Mantis(self.config)
+        nagios2mantis.db_spool.add = mock.MagicMock(side_effect=AssertionError)
+        with mock.patch('logging.exception') as exc_mock:
+            nagios2mantis.spool('localhost', 'UP', None, 'OK', 1)
+        exc_mock.assert_called_once_with(
+            'An error occured while addind a new item to treat. '
+            'Params where hostname:%s ; state:%s ; service:%s ; '
+            'plugin_output:%s ; project_id:%d',
+            'localhost', 'UP', None, 'OK', 1)
+        nagios2mantis.db_spool.add.assert_called_once_with(
+            'localhost', 'UP', None, 'OK', 1)
+
     def test_mantis(self):
         nagios2mantis = Nagios2Mantis(self.config)
         with mock.patch('SOAPpy.WSDL.Proxy') as ws_mock:
@@ -466,6 +479,23 @@ class Nagios2MantisTest(unittest.TestCase):
 
         nagios2mantis.db_spool.rows.assert_called_once_with()
         self.assertFalse(nagios2mantis.empty_row.called)
+        nagios2mantis.db_spool.close.assert_called_once_with()
+
+    def test_empty_cache_fail(self):
+        nagios2mantis = Nagios2Mantis(self.config)
+
+        nagios2mantis.db_spool.rows = mock.MagicMock(return_value=[[1], [2]])
+        nagios2mantis.empty_row = mock.MagicMock(
+            side_effect=[None, AssertionError])
+        nagios2mantis.db_spool.close = mock.MagicMock()
+
+        with mock.patch('logging.exception') as exc_mock:
+            nagios2mantis.empty_cache()
+
+        exc_mock.assert_called_once_with(
+            'Treating row whose id is %d failed', 2)
+        nagios2mantis.db_spool.rows.assert_called_once_with()
+        self.assertEquals(nagios2mantis.empty_row.call_count, 2)
         nagios2mantis.db_spool.close.assert_called_once_with()
 
 
