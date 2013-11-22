@@ -359,13 +359,19 @@ def main(cli_args):
     )
     subparsers = parser.add_subparsers()
 
-    empty_parser = subparsers.add_parser('empty')
+    empty_parser = subparsers.add_parser(
+        'empty', help='Create mantis ticket and empty the spool')
     empty_parser.set_defaults(func=empty)
 
-    clean_parser = subparsers.add_parser('clean')
+    clean_parser = subparsers.add_parser(
+        'clean',
+        help='Remove old relations between nagios host/service and mantis '
+             'ticket'
+    )
     clean_parser.set_defaults(func=clean)
 
-    spool_parser = subparsers.add_parser('spool')
+    spool_parser = subparsers.add_parser(
+        'spool', help='Add an new event in the spool')
     spool_parser.add_argument(
         '--hostname',
         help='Nagios hostname',
