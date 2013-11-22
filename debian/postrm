@@ -20,7 +20,7 @@ set -e
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]
 then
     # Restart incron
-    /etc/init.d/incron restart
+    invoke-rc.d incron restart
 fi
 
 exit 0

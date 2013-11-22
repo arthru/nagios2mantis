@@ -41,7 +41,7 @@ then
     chown nagios:nagios $inotify_file "$(dirname $inotify_file)"
 
     # Restart incrond
-    /etc/init.d/incron restart
+    invoke-rc.d incron restart
 fi
 
 exit 0

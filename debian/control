@@ -3,7 +3,10 @@ Section: admin
 Priority: optional
 Maintainer: Cyril Bouthors <cyb@debian.org>
 Uploaders: Cyril Bouthors <cyril@boutho.rs>, Cyril Bouthors <cyril@bouthors.org>
-Build-Depends: debhelper (>= 5), help2man
+Build-Depends: python-all (>= 2.6.6-3),
+    debhelper (>= 5),
+    help2man,
+    python-coverage (>= 3.5)
 Standards-Version: 3.9.4
 
 Package: nagios2mantis

@@ -316,10 +316,29 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         self.db.commit()
 
 
+class HelpAction(argparse._HelpAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.print_help()
+
+        for action in parser._actions:
+            if type(action) != argparse._SubParsersAction:
+                continue
+            for name, subparser in action._name_parser_map.items():
+                title = "%s command" % (name)
+                print "\n%s\n%s\n" % (title, len(title) * '=')
+                subparser.print_help()
+
+        parser.exit()
+
+
 def main(cli_args):
     # Read command line arguments
     parser = argparse.ArgumentParser(
-        description='Sends Nagios alerts to Mantis')
+        description='Sends Nagios alerts to Mantis', add_help=False)
+    parser.add_argument(
+        '-h', '--help', action=HelpAction, default=argparse.SUPPRESS,
+        help='show this help message and exit'
+    )
     parser.add_argument(
         '--configuration-file',
         help='INI file containing Mantis parameters',

@@ -20,4 +20,4 @@ if __name__ == '__main__':
     import nagios2mantis
     import sys
 
-    nagios2mantis.main(sys.argv)
+    nagios2mantis.main(sys.argv[1:])

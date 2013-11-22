@@ -28,7 +28,7 @@ clean:
 
 man/nagios2mantis.1: bin/nagios2mantis
 	mkdir -p man
-	help2man --name $(@F) --version-string=1.0 --no-discard-stderr $< -o $@
+	export PYTHONPATH=. ; help2man --name $(@F) --version-string=1.0 --no-discard-stderr $< -o $@
 
 install:
 	./setup.py install --prefix=debian/nagios2mantis/usr \
