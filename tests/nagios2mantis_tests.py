@@ -401,7 +401,7 @@ class Nagios2MantisTest(unittest.TestCase):
         nagios2mantis.add_issue = mock.MagicMock()
         nagios2mantis.add_note = mock.MagicMock()
 
-        nagios2mantis.empty_row((1, 'localhost', 'UP', 'apache2', 'OK', 1))
+        nagios2mantis.empty_row((1, 'localhost', 'DOWN', 'apache2', 'OK', 1))
 
         nagios2mantis.find_issue.assert_called_once_with(
             'localhost', 'apache2')
@@ -409,10 +409,23 @@ class Nagios2MantisTest(unittest.TestCase):
             'category': u'General',
             'project': {'id': 1},
             'description': u'Nagios error detected: OK',
-            'summary': 'apache2 is UP on host localhost'
+            'summary': 'apache2 is DOWN on host localhost'
         }
         nagios2mantis.add_issue.assert_called_once_with('localhost', 'apache2',
                                                         expected_issue, 1)
+        self.assertFalse(nagios2mantis.add_note.called)
+
+    def test_empty_row_not_found_state_up(self):
+        nagios2mantis = Nagios2Mantis(self.config)
+        nagios2mantis.find_issue = mock.MagicMock(return_value=None)
+        nagios2mantis.add_issue = mock.MagicMock()
+        nagios2mantis.add_note = mock.MagicMock()
+
+        nagios2mantis.empty_row((1, 'localhost', 'UP', 'apache2', 'OK', 1))
+
+        nagios2mantis.find_issue.assert_called_once_with(
+            'localhost', 'apache2')
+        self.assertFalse(nagios2mantis.add_issue.called)
         self.assertFalse(nagios2mantis.add_note.called)
 
     def test_empty_row_found(self):

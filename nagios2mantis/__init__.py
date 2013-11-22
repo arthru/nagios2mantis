@@ -85,6 +85,8 @@ class Nagios2Mantis(object):
         issue = self.find_issue(hostname, service)
 
         if issue is None:
+            if state == 'UP':
+                return
             issue = {
                 'summary': summary,
                 'description': self.config.issue_description.format(
