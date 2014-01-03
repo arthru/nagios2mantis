@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
 import ConfigParser
 from datetime import datetime
 import os.path
@@ -99,6 +102,14 @@ class DbSpoolTest(unittest.TestCase):
         result = self.spool.db.execute('SELECT * FROM nagios2mantis;')
         self.assertEquals(tuple(result), (
             (1, u'localhost', u'DOWN', 'apache2', u'NOT OK', 1),))
+
+    def test_add_accent(self):
+        self.spool.add('localhost', 'DOWN', None, 'é', 1)
+        result = self.spool.db.execute('SELECT * FROM nagios2mantis;')
+        self.assertEquals(
+            tuple(result)[0],
+            (1, u'localhost', u'DOWN', None, u'é', 1)
+        )
 
     def test_rows_0(self):
         result = self.spool.rows()

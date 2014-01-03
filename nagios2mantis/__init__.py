@@ -16,14 +16,17 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+import argparse
+import locale
+import logging
+import sqlite3
+import yaml
+
 from ConfigParser import RawConfigParser
 from datetime import datetime
 from datetime import timedelta
-import argparse
-import yaml
-import sqlite3
+
 from SOAPpy import WSDL, faultType
-import logging
 
 NAGIOS_STATES = ['UP', 'DOWN', 'CRITICAL', 'WARNING', 'OK', 'UNKNOWN',
                  'PENDING']
@@ -299,11 +302,13 @@ CREATE TABLE IF NOT EXISTS nagios_mantis_relation(
         self.db.close()
 
     def add(self, hostname, state, service, plugin_output, project_id):
+        encoding = locale.getpreferredencoding()
+        u = lambda s: s is not None and unicode(s, encoding) or None
         request_params = {
-            'hostname': hostname,
-            'state': state,
-            'service': service,
-            'plugin_output': plugin_output,
+            'hostname': u(hostname),
+            'state': u(state),
+            'service': u(service),
+            'plugin_output': u(plugin_output),
             'project_id': project_id
         }
         self.db.execute('''INSERT INTO nagios2mantis
